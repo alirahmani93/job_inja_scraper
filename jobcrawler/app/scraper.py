@@ -3,8 +3,11 @@ import re
 
 from bs4 import BeautifulSoup
 import requests
+from django.db.transaction import atomic
 
-__all__ = ['JobInjaScaper', ]
+from .models import Job, Company
+
+__all__ = ['job_inja', ]
 
 
 def bs4_print(content, t=None):
@@ -37,18 +40,26 @@ class JobInjaScaper(object):
     _job_inja = None
 
     def __init__(self):
-        self.page_number = 0
         super(JobInjaScaper, self).__init__()
         self.session = requests.session()
 
         self.base_url: str = 'https://jobinja.ir/'
         self.filter_url: str = "jobs?"
 
+        self.page_number = 0
         self.locations: list = location_option
         self.html_text = None
         self.soup: [BeautifulSoup | None] = None
         self.all_soup_pages: list = []
         self.temp_file: list = []
+
+    def clean_data(self):
+        self.page_number = 0
+        self.html_text = None
+        self.soup = None
+        self.all_soup_pages.clear()
+        self.temp_file.clear()
+        return
 
     @staticmethod
     def job_inja():  # singleton
@@ -88,6 +99,7 @@ class JobInjaScaper(object):
         ma, mi = max(temp_page_number), min(temp_page_number)
         return [page_link_sample + 'page=' + str(i) for i in range(mi, ma + 1)]
 
+    @atomic
     def _iterate_pages(self):
         pages: list = self._paginator()
         print("page number: ", end=' ')
@@ -98,7 +110,9 @@ class JobInjaScaper(object):
             self.all_soup_pages.append(self._soup_object(html=self.session.get(url=p, timeout=30).content))
         for html_bs4 in self.all_soup_pages:
             self._calculate_page(sp=html_bs4)
-        self._write_to_file(self.temp_file)
+        # self._write_to_file(self.temp_file)
+        self._to_db()
+        self.clean_data()
 
     def _calculate_page(self, sp: BeautifulSoup):
         print(self.page_number, end=' // ')
@@ -116,7 +130,10 @@ class JobInjaScaper(object):
                 {
                     'link': job_title_link,
                     'title': bs4_return(job_title_element, cat='title'),
-                    'publish_time': bs4_return(publish_time)
+                    'publish_time': bs4_return(publish_time),
+                    'code': job_title_link.split('jobs/')[1].split('/')[0],
+                    'company_name_en': job_title_link.split('companies/')[1].split('/')[0]
+
                 })
 
             # job info
@@ -142,6 +159,30 @@ class JobInjaScaper(object):
         with open('./my_file.json', mode='a', encoding='utf8') as f:
             json.dump(content, f, indent=3, ensure_ascii=False)
 
+    def _to_db(self):
+        job_list = []
+        jobs = Job.objects.all()
+
+        for page in self.temp_file:
+            for job in page:
+                c = job['company']
+                job_code = job['code']
+                company_name_en = job['company_name_en']
+                company, _ = Company.objects.get_or_create(name=c, **{'title': company_name_en})
+
+                if not jobs.filter(code=job_code, company=company).exists():
+                    job_list.append(
+                        Job(
+                            title=job['title'],
+                            location=job['location'],
+                            company=company,
+                            salary=job['salary'],
+                            publish_time=job['publish_time'],
+                            link=job['link'],
+                            code=job_code
+                        )
+                    )
+        Job.objects.bulk_create(job_list, batch_size=10)
+
 
 job_inja = JobInjaScaper.job_inja()
-job_inja.send_first_request(title='python')
