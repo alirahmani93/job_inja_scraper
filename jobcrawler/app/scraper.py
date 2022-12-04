@@ -104,17 +104,17 @@ class JobInjaScaper(object):
         pages: list = self._paginator()
         print("page number: ", end=' ')
 
-        self._calculate_page(sp=self.soup)
+        self._calculate_job_list_page(sp=self.soup)
 
         for p in pages:
             self.all_soup_pages.append(self._soup_object(html=self.session.get(url=p, timeout=30).content))
         for html_bs4 in self.all_soup_pages:
-            self._calculate_page(sp=html_bs4)
+            self._calculate_job_list_page(sp=html_bs4)
         # self._write_to_file(self.temp_file)
         self._to_db()
         self.clean_data()
 
-    def _calculate_page(self, sp: BeautifulSoup):
+    def _calculate_job_list_page(self, sp: BeautifulSoup):
         print(self.page_number, end=' // ')
         jobs = sp.find_all('div', class_='o-listView__itemWrap c-jobListView__itemWrap u-clearFix')
         jobs_info: [list | dict] = []
@@ -183,6 +183,35 @@ class JobInjaScaper(object):
                         )
                     )
         Job.objects.bulk_create(job_list, batch_size=10)
+
+    def get_detail_page(self):
+        def req(link_):
+            return self.session.get(link_)
+
+        jobs = Job.objects.all()
+        links = jobs.values_list('link', flat=True)[:2]
+
+        result = list(map(lambda link_: self.session.get(link_).content.decode(), links))
+
+        for html in result:
+            sp = BeautifulSoup(html, 'lxml')
+            main_div = sp.find('div', class_='col-md-8 col-sm-12 js-fixedWidgetSide')
+            ul_tag = main_div.find('ul', class_='c-jobView__firstInfoBox c-infoBox')
+            description_tag = main_div.find_all('div', class_='o-box__text s-jobDesc c-pr40p')
+            print(description_tag)
+            for tag in description_tag:
+                print(tag)
+            break
+            # x = []
+            # li_tags = ul_tag.find_all('li', class_='c-infoBox__item')
+            # items: list[tuple] = []
+            # for l in li_tags:
+            #     items.append((l.h4.text, re.sub(r'\s+', "", l.div.text).replace('\u200c', ' ')))
+            # # print(items)
+            # text_box = main_div.find('div', class_='o-box__text s-jobDesc c-pr40p')
+            # print(main_div.selection)
+            # # info_box_li = text_box.find_all('li', class_='c-infoBox')
+
 
 
 job_inja = JobInjaScaper.job_inja()

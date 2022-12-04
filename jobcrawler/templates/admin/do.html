@@ -4,31 +4,27 @@
     <div>
         <ul class="object-tools">
             <li id="get-data-li">
-                {#                <div>#}
-                {##}
-                {#                    <label style="display: flex">#}
-                {#                        <input id="search" type="text" name="search" placeholder="ex. python">#}
-                {##}
-                {#                    </label>#}
-                {##}
-                {##}
-                {#                    <a id="get-data-a"#}
-                {#                       class="addLink"#}
-                {#                       href="/get-data/?next=/admin/app/job/"#}
-                {#                       onclick="MyFunc()"#}
-                {#                    >Get Data</a>#}
-                {##}
-                {#                </div>#}
-                <form>
-                    <div class="form-group">
-                        <label for="exampleInputName">Job Title: </label>
-                        <input type="text" class="form-control" id="exampleInputName" aria-describedby="Help"
-                               placeholder="Enter Job Title">
+                <div>
+                    <div>
+                        <label style="display: flex">
+                            <input id="search" type="text" name="search" placeholder="ex. python">
+                        </label>
+                        <a id="get-data-a"
+                           class="addLink"
+                           href="/get-data/?next=/admin/app/job/"
+                           onclick="MyFunc()"
+                        >Get Data</a>
                     </div>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </form>
+                    <div>
+                        <a id="get-detail-data-a"
+                           class="addLink"
+                           href="/get-detail-data/?next=/admin/app/job/"
+                           onclick="MyFunc()"
+                        >Get Detail Data
+                        </a>
+                    </div>
+                </div>
             </li>
-
         </ul>
     </div>
     <br/>
@@ -42,6 +38,14 @@
             req = document.getElementById('search');
             let url = new URL('/get-data/?next=admin/app/job/');
             url.searchParams.append('title', req.nodeValue);
+            console.log(url)
+        }
+    </script>
+    <script>
+        function MyFunc() {
+            send = document.getElementById('get-detail-data-a');
+            req = document.getElementById('search');
+            let url = new URL('/get-detail-data/?next=admin/app/job/');
             console.log(url)
         }
     </script>
